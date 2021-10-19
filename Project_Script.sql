@@ -72,7 +72,27 @@ CREATE TABLE Accueillie(
         PRIMARY KEY (id_company_Theatre,id_theatre_Theatre,id_spectacle_Spectacle)
 )ENGINE=InnoDB;
 
+CREATE TABLE CalendarMonths (
+  date DATETIME,
+  PRIMARY KEY (date)
+)ENGINE=InnoDB;
 
+DELIMITER //
+CREATE PROCEDURE init_date()
+	BEGIN
+		DECLARE basedate DATETIME;
+		DECLARE offset INT;
+	SELECT
+		basedate = '01 Jan 2000',
+		offset = 1;
+
+	WHILE (offset < 2048) DO
+		INSERT INTO CalendarMonths SELECT DATEADD(MONTH, @offset, date) FROM CalendarMonths;
+		SELECT offset = offset + offset;
+	END WHILE;
+END //
+
+DELIMITER ;
 
 ALTER TABLE Ticket ADD CONSTRAINT FK_Ticket_id_spectacle_Spectacle FOREIGN KEY (id_spectacle_Spectacle) REFERENCES Spectacle(id_spectacle);
 ALTER TABLE Sponsor ADD CONSTRAINT FK_Sponsor_id_company_Theatre FOREIGN KEY (id_company_Theatre) REFERENCES Theatre(id_company);
