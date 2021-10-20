@@ -101,6 +101,15 @@ CREATE PROCEDURE init_date()
 	END WHILE;
 END /
 
+CREATE PROCEDURE main()
+    BEGIN
+        DECLARE day_show int;
+        WHILE (SELECT row_count() FROM Calendar) DO
+            SET day_show = (SELECT * FROM )
+            IF
+        end while;
+    end /
+
 DELIMITER ;
 
 ALTER TABLE Ticket ADD CONSTRAINT FK_Ticket_id_spectacle_Spectacle FOREIGN KEY (id_spectacle_Spectacle) REFERENCES Spectacle(id_spectacle);
@@ -117,4 +126,4 @@ ALTER TABLE Accueillie ADD CONSTRAINT FK_Accueillie_id_spectacle_Spectacle FOREI
 
 CALL init_date();
 
-select * from Calendar;
+select row_count() from Calendar;
