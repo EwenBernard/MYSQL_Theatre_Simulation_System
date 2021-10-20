@@ -132,3 +132,75 @@ ALTER TABLE Accueillie ADD CONSTRAINT FK_Accueillie_id_spectacle_Spectacle FOREI
 CALL init_date();
 
 select row_count() from Calendar;
+
+
+
+INSERT INTO Theatre (id_company, capacity, budget, city)
+ VALUES
+ ('1', '3000', '200000.0', 'Paris'),
+ ('2', '1500', '400000.0', 'London'),
+ ('3', '2000', '200000.0', 'Espagne'),
+ ('4', '13000', '300000.0', 'Paris'),
+ ('5', '1100', '454000.0', 'London'),
+ ('6', '2000', '267000.0', 'New York'),
+ ('7', '2000', '267000.0', 'Espagne'),
+ ('8', '20000', '367000.0', 'Los Angeles'),
+ ('9', '2200', '267000.0', 'Espagne'),
+ ('10', '14000', '330000.0', 'Italie');
+ 
+ INSERT INTO Spectacle (id_spectacle, name, production_count, distribution_count)
+ VALUES
+ ('1', 'Grease', '100000.0', '30000.0'),
+ ('2', 'Roi Lion', '80000.0', '25000.0'),
+ ('3', 'Roméo et Juliette', '120000.0', '40000.0'),
+ ('4', 'Les Pas perdus', '90000.0', '50000.0'),
+ ('5', 'Le tartuffe', '75000.0', '30000.0');
+ 
+INSERT INTO Ticket (id_ticket, reduction_rate, normal_price, reduct_price, price, date__Reserver, id_spectacle_Spectacle)
+ VALUES
+ ('1', '', '', '','30','','1'),
+ ('2', '', '', '','35','','2'),
+ ('3', '', '', '','25','','3'),
+ ('4', '', '', '','20','','4'),
+ ('5', '', '', '','22','','5');
+ 
+  
+INSERT INTO Sponsor (id_sponsor, name, price_Subventionner, date_start_Subventionner, date_end_Subventionner, id_company_Theatre)
+ VALUES
+ ('1', 'Orange', '10000.0', '','','1'),
+ ('2', 'Bnp Paribas','20000.0', '','','4'),
+ ('3', 'Amrican Express','35000.0', '','','2'),
+ ('4', 'British Land','40000.0', '','','5'),
+ ('5', 'Chanel','30000.0', '','','3'),
+ ('6', 'RedBull','25000.0', '','','8'), #What a shame ...
+ ('7', 'My Big Paella','30000.0', '','','7'),
+ ('8', 'Bank of America','50000.0', '','','8'),
+ ('9', 'My Small Paella','15000.0', '','','9'),
+ ('10', 'Tods','25000.0', '','','10');
+ 
+ 
+ INSERT INTO Produire ( id_company_Theatre,id_spectacle_Spectacle)
+  VALUES
+ ('',''),
+ ('',''),
+ ('',''),
+ ('',''),
+ ('',''),
+ ('',''),
+ ('',''),
+ ('','');
+ 
+ 
+  INSERT INTO Accueillie (global_fix_price, date_start, date_end, frais_transport, frais_mes, id_company_Theatre, id_spectacle_Spectacle)
+   VALUES
+ ('1', 'Orange', '10000.0', '','','1'),
+ ('2', 'Bnp Paribas','20000.0', '','','4'),
+ ('3', 'Amrican Express','35000.0', '','','2'),
+ ('4', 'British Land','40000.0', '','','5'),
+ ('5', 'Chanel','30000.0', '','','3'),
+ 
+ 
+ 
+ 
+ 
+ #select * from Theatre;
