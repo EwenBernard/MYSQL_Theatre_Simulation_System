@@ -81,7 +81,7 @@ CREATE TABLE Accueillie(
 )ENGINE=InnoDB;
 
 CREATE TABLE Calendar (
-  date DATETIME,
+  date DATE,
   PRIMARY KEY (date)
 )ENGINE=InnoDB;
 
@@ -89,7 +89,7 @@ DELIMITER /
 CREATE PROCEDURE init_date()
 	BEGIN
     
-	DECLARE basedate DATETIME;
+	DECLARE basedate DATE;
 	DECLARE offset INT;
 	SET basedate = "2021-01-01";
 	SET	offset = 1;
@@ -103,9 +103,14 @@ END /
 
 CREATE PROCEDURE main()
     BEGIN
+        DECLARE current_day DATE;
         DECLARE day_show int;
-        WHILE (SELECT row_count() FROM Calendar) DO
-            SET day_show = (SELECT * FROM )
+        DECLARE offset int;
+        SET offset = 0;
+        WHILE (SELECT offset < (SELECT row_count() FROM Calendar)) DO
+            SET current_day = SELECT 
+            SET day_show = (SELECT * FROM Accueillie WHERE current_day >= Accueillie.date_start
+                AND current_day <= Accueillie.date_end);
             IF
         end while;
     end /
