@@ -82,7 +82,8 @@ CREATE TABLE Accueillie(
 
 CREATE TABLE Calendar (
   date DATE,
-  PRIMARY KEY (date)
+  index_date int Auto_increment,
+  PRIMARY KEY (date, index_date)
 )ENGINE=InnoDB;
 
 DELIMITER /
@@ -108,10 +109,12 @@ CREATE PROCEDURE main()
         DECLARE offset int;
         SET offset = 0;
         WHILE (SELECT offset < (SELECT row_count() FROM Calendar)) DO
-            SET current_day = SELECT 
+            SET current_day = (SELECT date FROM Calendar WHERE (index_date = offset));
             SET day_show = (SELECT * FROM Accueillie WHERE current_day >= Accueillie.date_start
                 AND current_day <= Accueillie.date_end);
-            IF
+            IF COUNT(day_show) > 0 THEN
+                
+            end if /
         end while;
     end /
 
