@@ -6,12 +6,12 @@ use database_project;
 DROP TABLE IF EXISTS Theatre;
 CREATE TABLE Theatre(
         id_company   Int  Auto_increment,
-        -- id_theatre     Int Auto,
+        id_theatre     Int Auto_Increment,
         capacity     Int,
         budget     Float (25),
         city     Char (25),
-        PRIMARY KEY (id_company)
-        -- PRIMARY KEY (id_company,id_theatre)
+        -- PRIMARY KEY (id_company)
+        PRIMARY KEY (id_company,id_theatre)
 )ENGINE=InnoDB;
 
 
@@ -49,7 +49,7 @@ CREATE TABLE Sponsor(
         date_start_Subventionner     Date,
         date_end_Subventionner     Date,
         id_company_Theatre   int,
-        -- id_theatre_Theatre     Int (25),
+        id_theatre_Theatre     Int (25),
         PRIMARY KEY (id_sponsor)
 )ENGINE=InnoDB;
 
@@ -58,10 +58,10 @@ CREATE TABLE Sponsor(
 DROP TABLE IF EXISTS Produire;
 CREATE TABLE Produire(
         id_company_Theatre   int,
-        -- id_theatre_Theatre     Int (25),
+        id_theatre_Theatre     Int (25),
         id_spectacle_Spectacle    int,
-        -- PRIMARY KEY (id_company_Theatre,id_theatre_Theatre,id_spectacle_Spectacle)
-        PRIMARY KEY (id_company_Theatre, id_spectacle_Spectacle)
+        PRIMARY KEY (id_company_Theatre,id_theatre_Theatre,id_spectacle_Spectacle)
+        -- PRIMARY KEY (id_company_Theatre, id_spectacle_Spectacle)
 )ENGINE=InnoDB;
 
 
@@ -71,19 +71,33 @@ CREATE TABLE Accueillie(
         global_fix_price     Float (25),
         date_start     Date,
         date_end     Date,
-        frais_transport     Float (25),
-        frais_mes     Float (25),
+        travel_costs   Float (25),
+        staging_costs     Float (25),
+        comedians_fees Float (25),
         id_company_Theatre    int,
-        -- id_theatre_Theatre     Int (25),
+        id_theatre_Theatre     Int (25),
         id_spectacle_Spectacle   int,
-        PRIMARY KEY (id_company_Theatre, id_spectacle_Spectacle)
-        -- PRIMARY KEY (id_company_Theatre,id_theatre_Theatre,id_spectacle_Spectacle)
+        -- PRIMARY KEY (id_company_Theatre, id_spectacle_Spectacle)
+        PRIMARY KEY (id_company_Theatre,id_theatre_Theatre,id_spectacle_Spectacle)
 )ENGINE=InnoDB;
 
 CREATE TABLE Calendar (
   date DATE,
   index_date int Auto_increment,
   PRIMARY KEY (date, index_date)
+)ENGINE=InnoDB;
+
+CREATE TEMPORARY TABLE day_show(
+        global_fix_price     Float (25),
+        date_start     Date,
+        date_end     Date,
+        travel_costs   Float (25),
+        staging_costs     Float (25),
+        comedians_fees Float (25),
+        id_company_Theatre    int,
+        id_theatre_Theatre     Int (25),
+        id_spectacle_Spectacle   int,
+        PRIMARY KEY (id_company_Theatre, id_spectacle_Spectacle)
 )ENGINE=InnoDB;
 
 DELIMITER /
@@ -105,16 +119,31 @@ END /
 CREATE PROCEDURE main()
     BEGIN
         DECLARE current_day DATE;
-        DECLARE day_show int;
         DECLARE offset int;
         SET offset = 0;
         WHILE (SELECT offset < (SELECT row_count() FROM Calendar)) DO
             SET current_day = (SELECT date FROM Calendar WHERE (index_date = offset));
-            SET day_show = (SELECT * FROM Accueillie WHERE current_day >= Accueillie.date_start
-                AND current_day <= Accueillie.date_end);
-            IF COUNT(day_show) > 0 THEN
-                
-            end if /
+            INSERT INTO day_show(global_fix_price, date_start, date_end, travel_costs, staging_costs, comedians_fees, id_company_Theatre, id_theatre_Theatre,
+                                 id_spectacle_Spectacle) SELECT * FROM Accueillie
+                                                         WHERE current_day >= Accueillie.date_start
+                                                         AND current_day <= Accueillie.date_end;
+            IF (SELECT COUNT(*) FROM day_show) > 0 THEN
+                -- pay travel cost if show is played in another theatre
+                UPDATE Theatre SET budget = budget - (SELECT travel_costs FROM day_show WHERE id_company = id_company_Theatre)
+                WHERE id_theatre != (SELECT id_theatre_Theatre FROM day_show WHERE id_company = id_company_Theatre AND date_start = current_day);
+                -- pay stagings cost the first day for all the representations
+                UPDATE Theatre SET budget = budget - ((SELECT staging_costs FROM day_show WHERE id_company = id_company_Theatre)
+                                   * (SELECT DATEDIFF(date_start, date_end) AS days FROM day_show))
+                WHERE id_theatre = (SELECT id_theatre_Theatre FROM day_show WHERE date_start = current_day);
+                IF ((SELECT id_company_Theatre FROM day_show) != (SELECT id_theatre_Theatre FROM day_show)) THEN
+                    UPDATE Theatre SET budget = budget - ((SELECT staging_costs FROM day_show WHERE id_company = id_company_Theatre)
+                                   * (SELECT DATEDIFF(date_start, date_end) AS days FROM day_show))
+                    WHERE id_theatre = (SELECT id_company_Theatre FROM day_show WHERE date_start = current_day);
+                end if;
+                -- pay comedians fee
+                UPDATE Theatre SET budget = budget - (SELECT comedians_fees FROM day_show WHERE id_company_Theatre = id_company)
+                WHERE id_company = (SELECT id_company_Theatre FROM day_show WHERE id_company_Theatre = id_company);
+            end if;
         end while;
     end /
 
@@ -122,12 +151,12 @@ DELIMITER ;
 
 ALTER TABLE Ticket ADD CONSTRAINT FK_Ticket_id_spectacle_Spectacle FOREIGN KEY (id_spectacle_Spectacle) REFERENCES Spectacle(id_spectacle);
 ALTER TABLE Sponsor ADD CONSTRAINT FK_Sponsor_id_company_Theatre FOREIGN KEY (id_company_Theatre) REFERENCES Theatre(id_company);
--- ALTER TABLE Sponsor ADD CONSTRAINT FK_Sponsor_id_theatre_Theatre FOREIGN KEY (id_theatre_Theatre) REFERENCES Theatre(id_theatre);
+ALTER TABLE Sponsor ADD CONSTRAINT FK_Sponsor_id_theatre_Theatre FOREIGN KEY (id_theatre_Theatre) REFERENCES Theatre(id_theatre);
 ALTER TABLE Produire ADD CONSTRAINT FK_Produire_id_company_Theatre FOREIGN KEY (id_company_Theatre) REFERENCES Theatre(id_company);
--- ALTER TABLE Produire ADD CONSTRAINT FK_Produire_id_theatre_Theatre FOREIGN KEY (id_theatre_Theatre) REFERENCES Theatre(id_theatre);
+ALTER TABLE Produire ADD CONSTRAINT FK_Produire_id_theatre_Theatre FOREIGN KEY (id_theatre_Theatre) REFERENCES Theatre(id_theatre);
 ALTER TABLE Produire ADD CONSTRAINT FK_Produire_id_spectacle_Spectacle FOREIGN KEY (id_spectacle_Spectacle) REFERENCES Spectacle(id_spectacle);
 ALTER TABLE Accueillie ADD CONSTRAINT FK_Accueillie_id_company_Theatre FOREIGN KEY (id_company_Theatre) REFERENCES Theatre(id_company);
--- ALTER TABLE Accueillie ADD CONSTRAINT FK_Accueillie_id_theatre_Theatre FOREIGN KEY (id_theatre_Theatre) REFERENCES Theatre(id_theatre);
+ALTER TABLE Accueillie ADD CONSTRAINT FK_Accueillie_id_theatre_Theatre FOREIGN KEY (id_theatre_Theatre) REFERENCES Theatre(id_theatre);
 ALTER TABLE Accueillie ADD CONSTRAINT FK_Accueillie_id_spectacle_Spectacle FOREIGN KEY (id_spectacle_Spectacle) REFERENCES Spectacle(id_spectacle);
 
 
@@ -200,7 +229,7 @@ INSERT INTO Sponsor (id_sponsor, name, price_Subventionner, date_start_Subventio
  ('2', 'Bnp Paribas','20000.0', '','','4'),
  ('3', 'Amrican Express','35000.0', '','','2'),
  ('4', 'British Land','40000.0', '','','5'),
- ('5', 'Chanel','30000.0', '','','3'),
+ ('5', 'Chanel','30000.0', '','','3');
  
  
  
