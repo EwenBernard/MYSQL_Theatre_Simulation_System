@@ -1,17 +1,19 @@
-
+SET GLOBAL log_bin_trust_function_creators = 1;
 drop database database_project;
 create database if not exists database_project;
 use database_project;
+SET SQL_SAFE_UPDATES = 0;
+
 
 DROP TABLE IF EXISTS Theatre;
 CREATE TABLE Theatre(
-        id_company   Int  Auto_increment,
+        -- id_company   Int  Auto_increment,
         id_theatre     Int Auto_Increment,
         capacity     Int,
         budget     Float (25),
         city     Char (25),
         -- PRIMARY KEY (id_company)
-        PRIMARY KEY (id_company,id_theatre)
+        PRIMARY KEY (id_theatre)
 )ENGINE=InnoDB;
 
 
@@ -29,14 +31,12 @@ CREATE TABLE Spectacle(
 
 DROP TABLE IF EXISTS Ticket;
 CREATE TABLE Ticket(
-        id_ticket    int Auto_increment,
-        reduction_rate     Int (25),
-        normal_price     Bool,
-        reduct_price     Bool,
         price     Float (25),
-        date__Reserver     Date,
+        reduc_price int,
+        date_Ticket     Date,
         id_spectacle_Spectacle   int,
-        PRIMARY KEY (id_ticket)
+        nb_ticket_sold int,
+        PRIMARY KEY (date_ticket, id_spectacle_Spectacle)
 )ENGINE=InnoDB;
 
 
@@ -82,12 +82,13 @@ CREATE TABLE Accueillie(
 )ENGINE=InnoDB;
 
 CREATE TABLE Calendar (
+  index_date int,
   date DATE,
-  index_date int Auto_increment,
-  PRIMARY KEY (date, index_date)
+  PRIMARY KEY (index_date)
 )ENGINE=InnoDB;
 
-CREATE TEMPORARY TABLE day_show(
+DROP TABLE IF EXISTS day_show;
+CREATE TABLE day_show(
         global_fix_price     Float (25),
         date_start     Date,
         date_end     Date,
@@ -101,20 +102,44 @@ CREATE TEMPORARY TABLE day_show(
 )ENGINE=InnoDB;
 
 DELIMITER /
-CREATE PROCEDURE init_date()
-	BEGIN
-    
-	DECLARE basedate DATE;
-	DECLARE offset INT;
-	SET basedate = "2021-01-01";
-	SET	offset = 1;
 
-	WHILE (offset < 60) DO
-        INSERT INTO Calendar VALUES (basedate);
-        SET basedate = DATE_ADD(basedate, INTERVAL 1 DAY);
-        SET offset = offset + 1;
-	END WHILE;
-END /
+CREATE TRIGGER before_update_Ticket BEFORE UPDATE
+ON Ticket FOR EACH ROW
+BEGIN 
+	DECLARE date_diff INT;
+    DECLARE capacity INT;
+    SET date_diff = DATEDIFF(OLD.date_Ticket, (SELECT date FROM Calendar));
+    SET capacity = (SELECT Theatre.capacity FROM
+				   Ticket INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spectacle 
+				   INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre
+                   WHERE Ticket.id_spectacle_Spectacle = NEW.id_spectacle_Spectacle AND date_Ticket = OLD.date_Ticket);
+    CASE
+		WHEN date_diff = 0 AND (30 * capacity DIV 100) > NEW.nb_ticket_sold THEN SET NEW.reduc_price = OLD.price DIV 2;
+        WHEN date_diff = 0 AND (50 * capacity DIV 100) > NEW.nb_ticket_sold THEN SET NEW.reduc_price = OLD.price - (30 * OLD.price);
+        WHEN date_diff < 15 THEN SET NEW.reduc_price = OLD.price - (20 * OLD.price);
+    END CASE;
+ END/   
+
+CREATE FUNCTION ticket_reduction(current_day DATE, show_date DATE, ticket_sold INT, capacity INT, price INT) RETURNS INT
+    BEGIN
+    DECLARE date_diff INT;
+    DECLARE ret float;
+    SET date_diff = DATEDIFF(show_date, current_day);
+    CASE
+		WHEN date_diff = 0 AND (30 * capacity DIV 100) > ticket_sold THEN SET ret = price DIV 2;
+        WHEN date_diff = 0 AND (50 * capacity DIV 100) > ticket_sold THEN SET ret = price - (30 * price);
+        WHEN date_diff < 15 THEN SET ret = price - (20 * price);
+        ELSE SET ret = price;
+    END CASE;
+    RETURN ret;
+end; /
+
+CREATE FUNCTION random_ticket(theatre_capacity INT) RETURNS INT
+BEGIN
+	RETURN ROUND(RAND() * theatre_capacity) DIV 15;
+end; /
+
+
 
 CREATE PROCEDURE main()
     BEGIN
@@ -143,43 +168,44 @@ CREATE PROCEDURE main()
                 -- pay comedians fee
                 UPDATE Theatre SET budget = budget - (SELECT comedians_fees FROM day_show WHERE id_company_Theatre = id_company)
                 WHERE id_company = (SELECT id_company_Theatre FROM day_show WHERE id_company_Theatre = id_company);
+                
+                -- simulate ticket sell
+                UPDATE Ticket 
+                INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spectacle 
+                INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre 
+                SET nb_ticket_sold = nb_ticket_sold + ROUND(RAND() * Theatre.capacity DIV 15);
+                
             end if;
+		UPDATE Calendar 
+        SET index_date = index_date + 1, date = DATE_ADD(date, INTERVAL 1 DAY);
         end while;
     end /
 
 DELIMITER ;
 
 ALTER TABLE Ticket ADD CONSTRAINT FK_Ticket_id_spectacle_Spectacle FOREIGN KEY (id_spectacle_Spectacle) REFERENCES Spectacle(id_spectacle);
-ALTER TABLE Sponsor ADD CONSTRAINT FK_Sponsor_id_company_Theatre FOREIGN KEY (id_company_Theatre) REFERENCES Theatre(id_company);
+-- ALTER TABLE Sponsor ADD CONSTRAINT FK_Sponsor_id_company_Theatre FOREIGN KEY (id_company_Theatre) REFERENCES Theatre(id_company);
 ALTER TABLE Sponsor ADD CONSTRAINT FK_Sponsor_id_theatre_Theatre FOREIGN KEY (id_theatre_Theatre) REFERENCES Theatre(id_theatre);
-ALTER TABLE Produire ADD CONSTRAINT FK_Produire_id_company_Theatre FOREIGN KEY (id_company_Theatre) REFERENCES Theatre(id_company);
+-- ALTER TABLE Produire ADD CONSTRAINT FK_Produire_id_company_Theatre FOREIGN KEY (id_company_Theatre) REFERENCES Theatre(id_company);
 ALTER TABLE Produire ADD CONSTRAINT FK_Produire_id_theatre_Theatre FOREIGN KEY (id_theatre_Theatre) REFERENCES Theatre(id_theatre);
 ALTER TABLE Produire ADD CONSTRAINT FK_Produire_id_spectacle_Spectacle FOREIGN KEY (id_spectacle_Spectacle) REFERENCES Spectacle(id_spectacle);
-ALTER TABLE Accueillie ADD CONSTRAINT FK_Accueillie_id_company_Theatre FOREIGN KEY (id_company_Theatre) REFERENCES Theatre(id_company);
+-- ALTER TABLE Accueillie ADD CONSTRAINT FK_Accueillie_id_company_Theatre FOREIGN KEY (id_company_Theatre) REFERENCES Theatre(id_company);
 ALTER TABLE Accueillie ADD CONSTRAINT FK_Accueillie_id_theatre_Theatre FOREIGN KEY (id_theatre_Theatre) REFERENCES Theatre(id_theatre);
 ALTER TABLE Accueillie ADD CONSTRAINT FK_Accueillie_id_spectacle_Spectacle FOREIGN KEY (id_spectacle_Spectacle) REFERENCES Spectacle(id_spectacle);
 
-
-
-CALL init_date();
-
-select row_count() from Calendar;
-
-
-
-INSERT INTO Theatre (id_company, capacity, budget, city)
+INSERT INTO Theatre (capacity, budget, city)
  VALUES
- ('1', '3000', '200000.0', 'Paris'),
- ('2', '1500', '400000.0', 'London'),
- ('3', '2000', '200000.0', 'Espagne'),
- ('4', '13000', '300000.0', 'Paris'),
- ('5', '1100', '454000.0', 'London'),
- ('6', '2000', '267000.0', 'New York'),
- ('7', '2000', '267000.0', 'Espagne'),
- ('8', '20000', '367000.0', 'Los Angeles'),
- ('9', '2200', '267000.0', 'Espagne'),
- ('10', '14000', '330000.0', 'Italie');
- 
+ ('3000', '200000.0', 'Paris'),
+ ('1500', '400000.0', 'London'),
+ ('2000', '200000.0', 'Espagne'),
+ ('13000', '300000.0', 'Paris'),
+ ('1100', '454000.0', 'London'),
+ ('2000', '267000.0', 'New York'),
+ ('2000', '267000.0', 'Espagne'),
+ ('20000', '367000.0', 'Los Angeles'),
+ ('2200', '267000.0', 'Espagne'),
+ ('14000', '330000.0', 'Italie');
+
  INSERT INTO Spectacle (id_spectacle, name, production_count, distribution_count)
  VALUES
  ('1', 'Grease', '100000.0', '30000.0'),
@@ -187,16 +213,16 @@ INSERT INTO Theatre (id_company, capacity, budget, city)
  ('3', 'Roméo et Juliette', '120000.0', '40000.0'),
  ('4', 'Les Pas perdus', '90000.0', '50000.0'),
  ('5', 'Le tartuffe', '75000.0', '30000.0');
- 
-INSERT INTO Ticket (id_ticket, reduction_rate, normal_price, reduct_price, price, date__Reserver, id_spectacle_Spectacle)
+
+
+INSERT INTO Ticket (price, reduc_price, date_Ticket, id_spectacle_Spectacle, nb_ticket_sold)
  VALUES
- ('1', '', '', '','30','','1'),
- ('2', '', '', '','35','','2'),
- ('3', '', '', '','25','','3'),
- ('4', '', '', '','20','','4'),
- ('5', '', '', '','22','','5');
- 
-  
+('10','10','2021-01-01','1','0'),
+('12','12','2021-01-01','2','0');
+
+
+
+/*
 INSERT INTO Sponsor (id_sponsor, name, price_Subventionner, date_start_Subventionner, date_end_Subventionner, id_company_Theatre)
  VALUES
  ('1', 'Orange', '10000.0', '','','1'),
@@ -209,8 +235,8 @@ INSERT INTO Sponsor (id_sponsor, name, price_Subventionner, date_start_Subventio
  ('8', 'Bank of America','50000.0', '','','8'),
  ('9', 'My Small Paella','15000.0', '','','9'),
  ('10', 'Tods','25000.0', '','','10');
- 
- 
+
+
  INSERT INTO Produire ( id_company_Theatre,id_spectacle_Spectacle)
   VALUES
  ('',''),
@@ -221,8 +247,8 @@ INSERT INTO Sponsor (id_sponsor, name, price_Subventionner, date_start_Subventio
  ('',''),
  ('',''),
  ('','');
- 
- 
+
+
   INSERT INTO Accueillie (global_fix_price, date_start, date_end, frais_transport, frais_mes, id_company_Theatre, id_spectacle_Spectacle)
    VALUES
  ('1', 'Orange', '10000.0', '','','1'),
@@ -230,9 +256,18 @@ INSERT INTO Sponsor (id_sponsor, name, price_Subventionner, date_start_Subventio
  ('3', 'Amrican Express','35000.0', '','','2'),
  ('4', 'British Land','40000.0', '','','5'),
  ('5', 'Chanel','30000.0', '','','3');
+ */
  
- 
- 
- 
- 
- #select * from Theatre;
+ insert into Calendar(index_date, date) VALUES (1, "2021-01-01");
+ insert into day_show(global_fix_price, date_start, date_end, staging_costs, comedians_fees, id_company_Theatre, id_theatre_Theatre, id_spectacle_Spectacle) VALUES (NULL,NULL,NULL,NULL,NULL,1,1,1), (NULL,NULL,NULL,NULL,NULL,2,1,2);
+SELECT * FROM day_show;
+-- UPDATE Ticket SET nb_ticket_sold = nb_ticket_sold + ROUND(RAND() * (SELECT capacity FROM Theatre WHERE id_theatre = 1) DIV 15);
+                -- (SELECT id_theatre FROM day_show WHERE id_spectacle_Spectacle = Ticket.id_spectacle_Spectacle)) DIV 15) ;
+UPDATE Ticket 
+INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spectacle 
+INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre 
+SET nb_ticket_sold = nb_ticket_sold + ROUND(RAND() * Theatre.capacity DIV 15);
+
+SELECT * FROM Ticket;
+-- select ticket_reduction('2021-01-01', '2021-01-01', 100, 500);
+-- select random_ticket((Select capacity from Theatre));
