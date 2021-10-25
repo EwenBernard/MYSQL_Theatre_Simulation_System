@@ -118,10 +118,10 @@ BEGIN
 	DECLARE date_diff INT;
     DECLARE capacity INT;
     SET date_diff = DATEDIFF(OLD.date_Ticket, (SELECT date FROM Calendar));
-    SET capacity = (SELECT Theatre.capacity FROM
-				   Ticket INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spectacle 
-				   INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre
-                   WHERE Ticket.id_spectacle_Spectacle = NEW.id_spectacle_Spectacle AND date_Ticket = OLD.date_Ticket);
+    SET capacity = (SELECT Theatre.capacity FROM Ticket 
+				    INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spectacle 
+				    INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre
+                    WHERE Ticket.id_spectacle_Spectacle = NEW.id_spectacle_Spectacle AND date_Ticket = OLD.date_Ticket);
     SET NEW.nb_ticket_sold = NEW.nb_ticket_sold + NEW.nb_ticket_sold_today;               
     CASE
 		WHEN date_diff = 0 AND (0.3 * capacity) > NEW.nb_ticket_sold THEN SET NEW.reduc_price = NEW.price DIV 2;
@@ -129,7 +129,29 @@ BEGIN
         WHEN date_diff < 15 THEN SET NEW.reduc_price = NEW.price - (0.2 * NEW.price);
         ELSE SET NEW.reduc_price = NEW.price;
     END CASE;
- END/   
+ END/
+ 
+ 
+ CREATE PROCEDURE pay_ticket()
+ BEGIN 
+	DECLARE id_spectacle_loop int;
+	DECLARE reduc_price_loop int; 
+	DECLARE nb_ticket_sold_today_loop int;
+	DECLARE finished INT DEFAULT 0;
+    DECLARE ticket_cursor CURSOR FOR SELECT id_spectacle_Spectacle, reduc_price, nb_ticket_sold_today FROM Ticket;
+	DECLARE CONTINUE HANDLER FOR NOT FOUND SET finished = 1;
+    
+	OPEN ticket_cursor;
+	updateBudget : LOOP
+		FETCH ticket_cursor INTO id_spectacle_loop, reduc_price_loop, nb_ticket_sold_today_loop;
+		IF finished = 1 THEN
+			LEAVE updateBudget;
+		END IF;   
+		UPDATE Theatre SET Theatre.budget = Theatre.budget + ROUND(0.85 * nb_ticket_sold_today_loop *  reduc_price_loop + 0.1275 * nb_ticket_sold_today_loop *  reduc_price_loop) 
+        WHERE id_spectacle_loop IN (SELECT id_spectacle_Spectacle FROM day_show WHERE id_theatre_Theatre = Theatre.id_theatre);
+	END LOOP updateBudget;
+	CLOSE ticket_cursor;
+ END/
 
 
 CREATE PROCEDURE main()
@@ -141,12 +163,13 @@ CREATE PROCEDURE main()
         SET nb_days = 20;
         
         WHILE (SELECT offset < nb_days) DO
+			SET current_day = (SELECT date FROM Calendar);
             INSERT INTO day_show(global_fix_price, date_start, date_end, travel_costs, staging_costs, comedians_fees, id_company_Theatre, id_theatre_Theatre,
                                  id_spectacle_Spectacle) SELECT * FROM Accueillie
                                                          WHERE current_day >= Accueillie.date_start
                                                          AND current_day <= Accueillie.date_end;
+                                                         
             IF (SELECT COUNT(*) FROM day_show) > 0 THEN
-            
                 -- pay travel cost if show is played in another theatre
                 UPDATE Theatre 
 				INNER JOIN day_show ON id_theatre_Theatre = Theatre.id_Theatre
@@ -167,13 +190,15 @@ CREATE PROCEDURE main()
                 UPDATE Theatre 
 				INNER JOIN day_show ON id_theatre_Theatre = Theatre.id_Theatre
 				SET Theatre.budget = Theatre.budget - day_show.comedians_fees
-				WHERE (SELECT date FROM Calendar) BETWEEN day_show.date_start AND day_show.date_end;
+				WHERE current_day BETWEEN day_show.date_start AND day_show.date_end;
 
                 -- simulate ticket sell
                 UPDATE Ticket 
                 INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spectacle 
                 INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre 
                 SET nb_ticket_sold_today = ROUND(RAND() * Theatre.capacity DIV 15);
+                
+                CALL pay_ticket();
                 
             end if;
 		UPDATE Calendar 
@@ -259,20 +284,13 @@ insert into Calendar(index_date, date) VALUES (1, "2021-01-02");
 insert into day_show(global_fix_price, date_start, date_end, travel_costs, staging_costs, comedians_fees, id_foreign_theatre, id_theatre_Theatre, id_spectacle_Spectacle) VALUES (NULL,"2021-01-01","2021-01-01",300, 4000,1000,1,1,1), (NULL,"2021-01-01","2021-01-03", 500, 1000,1000,2,1,2);
 SELECT * FROM day_show;
 
-/*
 UPDATE Ticket 
 INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spectacle 
 INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre 
 SET nb_ticket_sold_today = ROUND(RAND() * Theatre.capacity DIV 15);
 
-UPDATE Ticket 
-INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spectacle 
-INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre 
-SET nb_ticket_sold_today = ROUND(RAND() * Theatre.capacity DIV 15);
-
+-- CALL pay_ticket();
 SELECT * FROM Ticket;
--- select ticket_reduction('2021-01-01', '2021-01-01', 100, 500);
--- select random_ticket((Select capacity from Theatre));
-*/
+SELECT * FROM Theatre;
 
-Select * FROM Theatre INNER JOIN day_show ON id_theatre_Theatre = Theatre.id_Theatre;
+-- SELECT * FROM Theatre;
