@@ -36,9 +36,9 @@ CREATE TABLE Ticket(
         date_Ticket     Date,
         id_spectacle_Spectacle   int,
         nb_ticket_sold int,
+        nb_ticket_sold_today int,
         PRIMARY KEY (date_ticket, id_spectacle_Spectacle)
 )ENGINE=InnoDB;
-
 
 
 DROP TABLE IF EXISTS Sponsor;
@@ -64,7 +64,15 @@ CREATE TABLE Produire(
         -- PRIMARY KEY (id_company_Theatre, id_spectacle_Spectacle)
 )ENGINE=InnoDB;
 
-
+CREATE TABLE Transaction_History(
+	id_transaction int Auto_increment,
+    transaction_date date,
+    id_theatre_payer int,
+    id_theatre_receiver int,
+    amount int,
+    label char,
+    PRIMARY KEY(id_transaction)
+)ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS Accueillie;
 CREATE TABLE Accueillie(
@@ -113,32 +121,14 @@ BEGIN
 				   Ticket INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spectacle 
 				   INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre
                    WHERE Ticket.id_spectacle_Spectacle = NEW.id_spectacle_Spectacle AND date_Ticket = OLD.date_Ticket);
+    SET NEW.nb_ticket_sold = NEW.nb_ticket_sold + NEW.nb_ticket_sold_today;               
     CASE
-		WHEN date_diff = 0 AND (30 * capacity DIV 100) > NEW.nb_ticket_sold THEN SET NEW.reduc_price = OLD.price DIV 2;
-        WHEN date_diff = 0 AND (50 * capacity DIV 100) > NEW.nb_ticket_sold THEN SET NEW.reduc_price = OLD.price - (30 * OLD.price);
-        WHEN date_diff < 15 THEN SET NEW.reduc_price = OLD.price - (20 * OLD.price);
+		WHEN date_diff = 0 AND (0.3 * capacity) > NEW.nb_ticket_sold THEN SET NEW.reduc_price = NEW.price DIV 2;
+        WHEN date_diff = 0 AND (0.5 * capacity) > NEW.nb_ticket_sold THEN SET NEW.reduc_price = NEW.price - (0.3 * NEW.price);
+        WHEN date_diff < 15 THEN SET NEW.reduc_price = NEW.price - (0.2 * NEW.price);
+        ELSE SET NEW.reduc_price = NEW.price;
     END CASE;
  END/   
-
-CREATE FUNCTION ticket_reduction(current_day DATE, show_date DATE, ticket_sold INT, capacity INT, price INT) RETURNS INT
-    BEGIN
-    DECLARE date_diff INT;
-    DECLARE ret float;
-    SET date_diff = DATEDIFF(show_date, current_day);
-    CASE
-		WHEN date_diff = 0 AND (30 * capacity DIV 100) > ticket_sold THEN SET ret = price DIV 2;
-        WHEN date_diff = 0 AND (50 * capacity DIV 100) > ticket_sold THEN SET ret = price - (30 * price);
-        WHEN date_diff < 15 THEN SET ret = price - (20 * price);
-        ELSE SET ret = price;
-    END CASE;
-    RETURN ret;
-end; /
-
-CREATE FUNCTION random_ticket(theatre_capacity INT) RETURNS INT
-BEGIN
-	RETURN ROUND(RAND() * theatre_capacity) DIV 15;
-end; /
-
 
 
 CREATE PROCEDURE main()
@@ -173,7 +163,7 @@ CREATE PROCEDURE main()
                 UPDATE Ticket 
                 INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spectacle 
                 INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre 
-                SET nb_ticket_sold = nb_ticket_sold + ROUND(RAND() * Theatre.capacity DIV 15);
+                SET nb_ticket_sold_today = ROUND(RAND() * Theatre.capacity DIV 15);
                 
             end if;
 		UPDATE Calendar 
@@ -215,10 +205,10 @@ INSERT INTO Theatre (capacity, budget, city)
  ('5', 'Le tartuffe', '75000.0', '30000.0');
 
 
-INSERT INTO Ticket (price, reduc_price, date_Ticket, id_spectacle_Spectacle, nb_ticket_sold)
+INSERT INTO Ticket (price, reduc_price, date_Ticket, id_spectacle_Spectacle, nb_ticket_sold, nb_ticket_sold_today)
  VALUES
-('10','10','2021-01-01','1','0'),
-('12','12','2021-01-01','2','0');
+(10, 10, '2021-01-05', 1, 0, 0),
+(12, 12, '2021-01-01', 2, 0, 0);
 
 
 
@@ -258,15 +248,19 @@ INSERT INTO Sponsor (id_sponsor, name, price_Subventionner, date_start_Subventio
  ('5', 'Chanel','30000.0', '','','3');
  */
  
- insert into Calendar(index_date, date) VALUES (1, "2021-01-01");
- insert into day_show(global_fix_price, date_start, date_end, staging_costs, comedians_fees, id_company_Theatre, id_theatre_Theatre, id_spectacle_Spectacle) VALUES (NULL,NULL,NULL,NULL,NULL,1,1,1), (NULL,NULL,NULL,NULL,NULL,2,1,2);
+insert into Calendar(index_date, date) VALUES (1, "2021-01-01");
+insert into day_show(global_fix_price, date_start, date_end, staging_costs, comedians_fees, id_company_Theatre, id_theatre_Theatre, id_spectacle_Spectacle) VALUES (NULL,NULL,NULL,NULL,NULL,1,1,1), (NULL,NULL,NULL,NULL,NULL,2,1,2);
 SELECT * FROM day_show;
--- UPDATE Ticket SET nb_ticket_sold = nb_ticket_sold + ROUND(RAND() * (SELECT capacity FROM Theatre WHERE id_theatre = 1) DIV 15);
-                -- (SELECT id_theatre FROM day_show WHERE id_spectacle_Spectacle = Ticket.id_spectacle_Spectacle)) DIV 15) ;
+
 UPDATE Ticket 
 INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spectacle 
 INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre 
-SET nb_ticket_sold = nb_ticket_sold + ROUND(RAND() * Theatre.capacity DIV 15);
+SET nb_ticket_sold_today = ROUND(RAND() * Theatre.capacity DIV 15);
+
+UPDATE Ticket 
+INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spectacle 
+INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre 
+SET nb_ticket_sold_today = ROUND(RAND() * Theatre.capacity DIV 15);
 
 SELECT * FROM Ticket;
 -- select ticket_reduction('2021-01-01', '2021-01-01', 100, 500);
