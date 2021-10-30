@@ -126,6 +126,25 @@ BEGIN
     END CASE;
  END/
  
+ CREATE PROCEDURE pay_sponsors()
+ BEGIN 
+	UPDATE Theatre 
+    INNER JOIN Sponsor ON Sponsor.id_theatre_Theatre = Theatre.id_theatre
+    SET Theatre.budget = Theatre.budget + Sponsor.price_Subventionner
+    WHERE (Sponsor.date_Subventionner = (SELECT Date FROM Calendar) AND Sponsor.donation_type = "SINGLE")
+    OR (DAY(Sponsor.date_Subventionner) = DAY((SELECT Date FROM Calendar)) AND Sponsor.donation_type = "MONTHLY")
+    OR (DAY(Sponsor.date_Subventionner) = DAY((SELECT Date FROM Calendar)) AND MONTH(Sponsor.date_Subventionner) = MONTH((SELECT Date FROM Calendar)) AND Sponsor.donation_type = "YEARLY");
+    
+    INSERT INTO Transaction_History(id_theatre_receiver, id_theatre_account_balance, amount) 
+    SELECT Theatre.id_theatre, Theatre.budget, Sponsor.price_Subventionner 
+	FROM Theatre INNER JOIN Sponsor ON Sponsor.id_theatre_Theatre = Theatre.id_theatre
+	WHERE (Sponsor.date_Subventionner = (SELECT Date FROM Calendar) AND Sponsor.donation_type = "SINGLE")
+	OR (DAY(Sponsor.date_Subventionner) = DAY((SELECT Date FROM Calendar)) AND Sponsor.donation_type = "MONTHLY")
+	OR (DAY(Sponsor.date_Subventionner) = DAY((SELECT Date FROM Calendar)) AND MONTH(Sponsor.date_Subventionner) = MONTH((SELECT Date FROM Calendar)) AND Sponsor.donation_type = "YEARLY");
+    
+    UPDATE Transaction_History SET transaction_date = (SELECT Date FROM Calendar), label = 'Sponsors' WHERE transaction_date IS NULL AND label IS NULL;  
+end / 
+ 
  
  CREATE PROCEDURE pay_ticket()
  BEGIN 
@@ -160,7 +179,7 @@ BEGIN
 	DECLARE offset int;
 	DECLARE nb_days int;
 	SET offset = 0;
-	SET nb_days = 5;
+	SET nb_days = 200;
 	
 	WHILE (SELECT offset < nb_days) DO
 		SET current_day = (SELECT date FROM Calendar);
@@ -194,8 +213,8 @@ BEGIN
 			WHERE Theatre.id_theatre != day_show.id_foreign_theatre;
             
             -- UPDATE TRANSACTION_HISTORY
-			INSERT INTO Transaction_History (id_theatre_payer, id_theatre_account_balance, amount) 
-			SELECT Theatre.id_theatre, day_show.id_theatre_Theatre, Theatre.budget FROM Theatre 
+			INSERT INTO Transaction_History (id_theatre_payer, id_theatre_receiver, id_theatre_account_balance, amount) 
+			SELECT Theatre.id_theatre, day_show.id_theatre_Theatre, Theatre.budget, day_show.staging_costs FROM Theatre 
 			INNER JOIN day_show ON day_show.id_foreign_Theatre = Theatre.id_Theatre;
 
 			UPDATE Transaction_History SET transaction_date = (SELECT Date FROM Calendar), label = 'Staging Costs' WHERE transaction_date IS NULL AND label IS NULL; 
@@ -222,6 +241,10 @@ BEGIN
 			SET nb_ticket_sold_today = ROUND(RAND() * Theatre.capacity DIV 15);
 			
 			CALL pay_ticket();
+            
+            -- pay sponsors
+            
+			CALL pay_sponsors();
 		
 		end if;
         -- Delete selected show
@@ -272,16 +295,17 @@ INSERT INTO Ticket (price, reduc_price, date_Ticket, id_spectacle_Spectacle, nb_
 
 INSERT INTO Sponsor (id_sponsor, name, price_Subventionner, date_Subventionner, id_theatre_Theatre, donation_type)
  VALUES
- ('1', 'Orange', '10000.0', '2021-01-01', '1' ,'MONTHLY'),
- ('2', 'Bnp Paribas','20000.0', '2','MONTHLY'),
- ('3', 'Amrican Express','35000.0', '2','YEARLY'),
+ ('1', 'Orange', '10000.0', '2021-01-01', '1' ,'SINGLE'),
+ ('2', 'Bnp Paribas','20000.0', '2021-02-01', '2','MONTHLY'),
+ ('3', 'Amrican Express','35000.0', '2021-01-05', '4','YEARLY');
+ /*
  ('4', 'British Land','40000.0', '5','SINGLE'),
  ('5', 'Chanel','30000.0', '1','SINGLE'),
  ('6', 'RedBull','25000.0', '3','MONTHLY'), #What a shame ...
  ('7', 'My Big Paella','30000.0', '5','YEARLY'),
  ('8', 'Bank of America','50000.0', '6','SINGLE'),
  ('9', 'My Small Paella','15000.0', '4','SINGLE'),
- ('10', 'Tods','25000.0', '1','YEARLY');
+ ('10', 'Tods','25000.0', '1','YEARLY');*/
 
 
 insert into Calendar(index_date, date) VALUES (1, "2021-01-01");
@@ -301,7 +325,7 @@ INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spe
 INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre 
 SET nb_ticket_sold_today = ROUND(RAND() * Theatre.capacity DIV 15); 
 */
--- CALL pay_ticket();
+
 CALL main();
 SELECT * FROM Theatre;
 SELECT * FROM Transaction_History;
