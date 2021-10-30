@@ -3,6 +3,7 @@ drop database database_project;
 create database if not exists database_project;
 use database_project;
 SET SQL_SAFE_UPDATES = 0;
+SET FOREIGN_KEY_CHECKS=0;
 
 
 DROP TABLE IF EXISTS Theatre;
@@ -107,7 +108,7 @@ CREATE TABLE day_show(
         id_foreign_theatre    int,
         id_theatre_Theatre     Int (25),
         id_spectacle_Spectacle   int,
-        PRIMARY KEY (id_foreign_theatre, id_spectacle_Spectacle)
+        PRIMARY KEY (id_foreign_theatre, id_spectacle_Spectacle, date_start, date_end)
 )ENGINE=InnoDB;
 
 DELIMITER /
@@ -160,82 +161,102 @@ BEGIN
 
 
 CREATE PROCEDURE main()
-    BEGIN
-        DECLARE current_day DATE;
-        DECLARE offset int;
-        DECLARE nb_days int;
-        SET offset = 0;
-        SET nb_days = 20;
-        
-        WHILE (SELECT offset < nb_days) DO
-			SET current_day = (SELECT date FROM Calendar);
-            INSERT INTO day_show(date_start, date_end, travel_costs, staging_costs, comedians_fees, id_foreign_theatre, id_theatre_Theatre,
-                                 id_spectacle_Spectacle) SELECT * FROM Accueillie
-                                                         WHERE current_day >= Accueillie.date_start
-                                                         AND current_day <= Accueillie.date_end;
-                                                         
-            IF (select count(1) where exists (select * from day_show)) THEN
-                -- pay travel cost if show is played in another theatre
-                UPDATE Theatre 
-				INNER JOIN day_show ON id_theatre_Theatre = Theatre.id_Theatre
-				SET Theatre.budget = budget - day_show.travel_costs 
-				WHERE day_show.id_foreign_theatre != id_theatre_Theatre;
-                
-                -- UPDATE TRANSACTION HISTORY
-                INSERT INTO Transaction_History (id_theatre_payer, id_theatre_account_balance, amount) 
-                SELECT Theatre.id_theatre, Theatre.Budget, day_show.travel_costs FROM Theatre 
-				INNER JOIN day_show ON id_theatre_Theatre = Theatre.id_Theatre;
+BEGIN
+	DECLARE current_day DATE;
+	DECLARE offset int;
+	DECLARE nb_days int;
+	SET offset = 0;
+	SET nb_days = 5;
+	
+	WHILE (SELECT offset < nb_days) DO
+		SET current_day = (SELECT date FROM Calendar);
+		INSERT INTO day_show(date_start, date_end, travel_costs, staging_costs, comedians_fees, id_foreign_theatre, id_theatre_Theatre,
+							 id_spectacle_Spectacle) SELECT * FROM Accueillie
+													 WHERE current_day >= Accueillie.date_start
+													 AND current_day <= Accueillie.date_end;
+		
+		IF (select count(1) where exists (select * from day_show)) THEN
+			-- pay travel cost if show is played in another theatre
+			UPDATE Theatre 
+			INNER JOIN day_show ON id_theatre_Theatre = Theatre.id_Theatre
+			SET Theatre.budget = budget - day_show.travel_costs 
+			WHERE day_show.id_foreign_theatre != id_theatre_Theatre;
+            
+            -- UPDATE TRANSACTION HISTORY
+			INSERT INTO Transaction_History (id_theatre_payer, id_theatre_account_balance, amount) 
+			SELECT Theatre.id_theatre, Theatre.Budget, day_show.travel_costs FROM Theatre 
+			INNER JOIN day_show ON id_theatre_Theatre = Theatre.id_Theatre;
 
-				UPDATE Transaction_History SET transaction_date = (SELECT Date FROM Calendar), label = 'Travel Costs' WHERE transaction_date IS NULL AND label IS NULL;   
+			UPDATE Transaction_History SET transaction_date = (SELECT Date FROM Calendar), label = 'Travel Costs' WHERE transaction_date IS NULL AND label IS NULL;
+			
+			-- pay stagings cost the first day for all the representations
+			UPDATE Theatre 
+			INNER JOIN day_show ON day_show.id_foreign_theatre = Theatre.id_Theatre
+			SET Theatre.budget = Theatre.budget - (day_show.staging_costs * (DATEDIFF(day_show.date_end, day_show.date_start) + 1));
 
-                -- pay stagings cost the first day for all the representations
-                UPDATE Theatre 
-				INNER JOIN day_show ON day_show.id_foreign_theatre = Theatre.id_Theatre
-				SET Theatre.budget = Theatre.budget - (day_show.staging_costs * (DATEDIFF(day_show.date_end, day_show.date_start) + 1));
+			UPDATE Theatre 
+			INNER JOIN day_show ON day_show.id_theatre_Theatre = Theatre.id_Theatre
+			SET Theatre.budget = Theatre.budget + (day_show.staging_costs * (DATEDIFF(day_show.date_end, day_show.date_start) + 1))
+			WHERE Theatre.id_theatre != day_show.id_foreign_theatre;
+            
+            -- UPDATE TRANSACTION_HISTORY
+			INSERT INTO Transaction_History (id_theatre_payer, id_theatre_account_balance, amount) 
+			SELECT Theatre.id_theatre, day_show.id_theatre_Theatre, Theatre.budget FROM Theatre 
+			INNER JOIN day_show ON day_show.id_foreign_Theatre = Theatre.id_Theatre;
 
-				UPDATE Theatre 
-				INNER JOIN day_show ON day_show.id_theatre_Theatre = Theatre.id_Theatre
-				SET Theatre.budget = Theatre.budget + (day_show.staging_costs * (DATEDIFF(day_show.date_end, day_show.date_start) + 1))
-				WHERE Theatre.id_theatre != day_show.id_foreign_theatre;
-                
-                -- UPDATE TRANSACTION_HISTORY
-                INSERT INTO Transaction_History (id_theatre_payer, id_theatre_receiver, id_theatre_account_balance, amount) 
-                SELECT Theatre.id_theatre, day_show.id_theatre_Theatre, Theatre.budget FROM Theatre 
-				INNER JOIN day_show ON day_show.id_foreign_Theatre = Theatre.id_Theatre;
+			UPDATE Transaction_History SET transaction_date = (SELECT Date FROM Calendar), label = 'Staging Costs' WHERE transaction_date IS NULL AND label IS NULL; 
+			UPDATE Transaction_History SET id_theatre_receiver = NULL WHERE id_theatre_payer = id_theatre_receiver;
+			
+			-- pay comedians fee
+			UPDATE Theatre 
+			INNER JOIN day_show ON id_theatre_Theatre = Theatre.id_Theatre
+			SET Theatre.budget = Theatre.budget - day_show.comedians_fees
+			WHERE current_day BETWEEN day_show.date_start AND day_show.date_end;
+            
+            INSERT INTO Transaction_History (id_theatre_payer, id_theatre_account_balance, amount) 
+			SELECT Theatre.id_theatre, Theatre.budget, day_show.travel_costs 
+			FROM Theatre 
+			INNER JOIN day_show ON id_theatre_Theatre = Theatre.id_Theatre
+			WHERE current_day BETWEEN day_show.date_start AND day_show.date_end;
 
-				UPDATE Transaction_History SET transaction_date = (SELECT Date FROM Calendar), label = 'Staging Costs' WHERE transaction_date IS NULL AND label IS NULL; 
-                UPDATE Transaction_History SET id_theatre_receiver = NULL WHERE id_theatre_payer = id_theatre_receiver;
-                
-                -- pay comedians fee
-                UPDATE Theatre 
-				INNER JOIN day_show ON id_theatre_Theatre = Theatre.id_Theatre
-				SET Theatre.budget = Theatre.budget - day_show.comedians_fees
-				WHERE current_day BETWEEN day_show.date_start AND day_show.date_end;
-                
-                INSERT INTO Transaction_History (id_theatre_payer, id_theatre_account_balance, amount) 
-                SELECT Theatre.id_theatre, Theatre.budget, day_show.travel_costs 
-                FROM Theatre 
-				INNER JOIN day_show ON id_theatre_Theatre = Theatre.id_Theatre
-				WHERE current_day BETWEEN day_show.date_start AND day_show.date_end;
-
-				UPDATE Transaction_History SET transaction_date = (SELECT Date FROM Calendar), label = 'Comedian Fees' WHERE transaction_date IS NULL AND label IS NULL;   
-
-                -- simulate ticket sell
-                UPDATE Ticket 
-                INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spectacle 
-                INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre 
-                SET nb_ticket_sold_today = ROUND(RAND() * Theatre.capacity DIV 15);
-                
-                CALL pay_ticket();
-                
-          end if;
+			UPDATE Transaction_History SET transaction_date = (SELECT Date FROM Calendar), label = 'Comedian Fees' WHERE transaction_date IS NULL AND label IS NULL;
+			
+			-- simulate ticket sell
+			UPDATE Ticket 
+			INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spectacle 
+			INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre 
+			SET nb_ticket_sold_today = ROUND(RAND() * Theatre.capacity DIV 15);
+			
+			CALL pay_ticket();
+		
+		end if;
+        -- Delete selected show
+		DELETE FROM day_show;
+        -- Change date
 		UPDATE Calendar 
-        SET index_date = index_date + 1, date = DATE_ADD(date, INTERVAL 1 DAY);
-        end while;
-    end /
+		SET index_date = index_date + 1, date = DATE_ADD(date, INTERVAL 1 DAY);
+		SET offset = offset + 1;
+    end while;
+end/
 
 DELIMITER ;
 
+-- end while;
+/*
+			
+                
+                
+                
+                
+          end if;
+
+
+
+
+   
+
+                
+*/
 ALTER TABLE Ticket ADD CONSTRAINT FK_Ticket_id_spectacle_Spectacle FOREIGN KEY (id_spectacle_Spectacle) REFERENCES Spectacle(id_spectacle);
 ALTER TABLE Sponsor ADD CONSTRAINT FK_Sponsor_id_theatre_Theatre FOREIGN KEY (id_theatre_Theatre) REFERENCES Theatre(id_theatre);
 ALTER TABLE Produire ADD CONSTRAINT FK_Produire_id_theatre_Theatre FOREIGN KEY (id_theatre_Theatre) REFERENCES Theatre(id_theatre);
@@ -299,6 +320,7 @@ INSERT INTO Sponsor (id_sponsor, name, price_Subventionner, date_start_Subventio
  ('','');
 
 */
+insert into Calendar(index_date, date) VALUES (1, "2021-01-01");
 
 INSERT INTO Accueillie (date_start, date_end, travel_costs, staging_costs, comedians_fees, id_foreign_theatre, id_theatre_Theatre, id_spectacle_Spectacle)
 VALUES
@@ -307,7 +329,6 @@ VALUES
 ("2021-01-01","2021-01-03", 500, 1000,1000,2,1,2);
  
  /*
-insert into Calendar(index_date, date) VALUES (1, "2021-01-02");
 insert into day_show(date_start, date_end, travel_costs, staging_costs, comedians_fees, id_foreign_theatre, id_theatre_Theatre, id_spectacle_Spectacle) VALUES ("2021-01-01","2021-01-01",300, 4000,1000,1,1,1), ("2021-01-01","2021-01-03", 500, 1000,1000,2,1,2);
 SELECT * FROM day_show;
 
@@ -318,11 +339,12 @@ SET nb_ticket_sold_today = ROUND(RAND() * Theatre.capacity DIV 15);
 */
 -- CALL pay_ticket();
 CALL main();
-SELECT * FROM Accueillie;
+-- SELECT * FROM Accueillie;
 -- SELECT * FROM Ticket;
--- SELECT * FROM Theatre;
--- SELECT * FROM Transaction_History;
-
+SELECT * FROM Theatre;
+SELECT * FROM Transaction_History;
+-- SELECT * FROM day_show;
+-- SELECT * from Calendar;
 
 
 -- SELECT * FROM Theatre;
