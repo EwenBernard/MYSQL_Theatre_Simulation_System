@@ -47,10 +47,9 @@ CREATE TABLE Sponsor(
         id_sponsor  int  Auto_increment,
         name     Char (25),
         price_Subventionner     Float (25),
-        date_start_Subventionner     Date,
-        date_end_Subventionner     Date,
-        -- id__Theatre   int,
+        date_Subventionner     Date,
         id_theatre_Theatre     Int (25),
+        donation_type Char(25),
         PRIMARY KEY (id_sponsor)
 )ENGINE=InnoDB;
 
@@ -58,11 +57,9 @@ CREATE TABLE Sponsor(
 
 DROP TABLE IF EXISTS Produire;
 CREATE TABLE Produire(
-        -- id_company_Theatre   int,
         id_theatre_Theatre     Int (25),
         id_spectacle_Spectacle    int,
         PRIMARY KEY (id_theatre_Theatre,id_spectacle_Spectacle)
-        -- PRIMARY KEY (id_company_Theatre, id_spectacle_Spectacle)
 )ENGINE=InnoDB;
 
 CREATE TABLE Transaction_History(
@@ -78,7 +75,6 @@ CREATE TABLE Transaction_History(
 
 DROP TABLE IF EXISTS Accueillie;
 CREATE TABLE Accueillie(
-        -- global_fix_price     Float (25),
         date_start     Date,
         date_end     Date,
         travel_costs   Float (25),
@@ -87,7 +83,6 @@ CREATE TABLE Accueillie(
         id_foreign_theatre    int,
         id_theatre_Theatre     Int (25),
         id_spectacle_Spectacle   int,
-        -- PRIMARY KEY (id_company_Theatre, id_spectacle_Spectacle)
         PRIMARY KEY (id_foreign_theatre,id_theatre_Theatre,id_spectacle_Spectacle)
 )ENGINE=InnoDB;
 
@@ -99,7 +94,6 @@ CREATE TABLE Calendar (
 
 DROP TABLE IF EXISTS day_show;
 CREATE TABLE day_show(
-        -- global_fix_price     Float (25),
         date_start     Date,
         date_end     Date,
         travel_costs   Float (25),
@@ -240,23 +234,7 @@ BEGIN
 end/
 
 DELIMITER ;
-
--- end while;
-/*
-			
-                
-                
-                
-                
-          end if;
-
-
-
-
    
-
-                
-*/
 ALTER TABLE Ticket ADD CONSTRAINT FK_Ticket_id_spectacle_Spectacle FOREIGN KEY (id_spectacle_Spectacle) REFERENCES Spectacle(id_spectacle);
 ALTER TABLE Sponsor ADD CONSTRAINT FK_Sponsor_id_theatre_Theatre FOREIGN KEY (id_theatre_Theatre) REFERENCES Theatre(id_theatre);
 ALTER TABLE Produire ADD CONSTRAINT FK_Produire_id_theatre_Theatre FOREIGN KEY (id_theatre_Theatre) REFERENCES Theatre(id_theatre);
@@ -292,34 +270,20 @@ INSERT INTO Ticket (price, reduc_price, date_Ticket, id_spectacle_Spectacle, nb_
 (12, 12, '2021-01-01', 2, 0, 0);
 
 
-
-/*
-INSERT INTO Sponsor (id_sponsor, name, price_Subventionner, date_start_Subventionner, date_end_Subventionner)
+INSERT INTO Sponsor (id_sponsor, name, price_Subventionner, date_Subventionner, id_theatre_Theatre, donation_type)
  VALUES
- ('1', 'Orange', '10000.0', '' ,''),
- ('2', 'Bnp Paribas','20000.0', '',''),
- ('3', 'Amrican Express','35000.0', '',''),
- ('4', 'British Land','40000.0', '',''),
- ('5', 'Chanel','30000.0', '',''),
- ('6', 'RedBull','25000.0', '',''), #What a shame ...
- ('7', 'My Big Paella','30000.0', '',''),
- ('8', 'Bank of America','50000.0', '',''),
- ('9', 'My Small Paella','15000.0', '',''),
- ('10', 'Tods','25000.0', '','');
+ ('1', 'Orange', '10000.0', '2021-01-01', '1' ,'MONTHLY'),
+ ('2', 'Bnp Paribas','20000.0', '2','MONTHLY'),
+ ('3', 'Amrican Express','35000.0', '2','YEARLY'),
+ ('4', 'British Land','40000.0', '5','SINGLE'),
+ ('5', 'Chanel','30000.0', '1','SINGLE'),
+ ('6', 'RedBull','25000.0', '3','MONTHLY'), #What a shame ...
+ ('7', 'My Big Paella','30000.0', '5','YEARLY'),
+ ('8', 'Bank of America','50000.0', '6','SINGLE'),
+ ('9', 'My Small Paella','15000.0', '4','SINGLE'),
+ ('10', 'Tods','25000.0', '1','YEARLY');
 
 
- INSERT INTO Produire ( id_company_Theatre,id_spectacle_Spectacle)
-  VALUES
- ('',''),
- ('',''),
- ('',''),
- ('',''),
- ('',''),
- ('',''),
- ('',''),
- ('','');
-
-*/
 insert into Calendar(index_date, date) VALUES (1, "2021-01-01");
 
 INSERT INTO Accueillie (date_start, date_end, travel_costs, staging_costs, comedians_fees, id_foreign_theatre, id_theatre_Theatre, id_spectacle_Spectacle)
@@ -339,12 +303,5 @@ SET nb_ticket_sold_today = ROUND(RAND() * Theatre.capacity DIV 15);
 */
 -- CALL pay_ticket();
 CALL main();
--- SELECT * FROM Accueillie;
--- SELECT * FROM Ticket;
 SELECT * FROM Theatre;
 SELECT * FROM Transaction_History;
--- SELECT * FROM day_show;
--- SELECT * from Calendar;
-
-
--- SELECT * FROM Theatre;
