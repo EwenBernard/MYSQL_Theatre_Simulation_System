@@ -215,7 +215,7 @@ BEGIN
             
             -- UPDATE TRANSACTION_HISTORY
 			INSERT INTO Transaction_History (id_theatre_payer, id_theatre_receiver, id_theatre_account_balance, amount) 
-			SELECT Theatre.id_theatre, day_show.id_theatre_Theatre, Theatre.budget, (day_show.staging_costs * (DATEDIFF(day_show.date_end, day_show.date_start) + 1)) FROM Theatre 
+			SELECT Theatre.id_theatre, day_show.id_theatre_Theatre, Theatre.budget, (day_show.staging_costs * (DATEDIFF(day_show.date_end, day_show.date_start) + 1))  FROM Theatre 
 			INNER JOIN day_show ON day_show.id_foreign_Theatre = Theatre.id_Theatre
             WHERE day_show.date_start = (SELECT Date FROM Calendar);
 
@@ -374,7 +374,7 @@ SELECT transaction_date, id_theatre_payer FROM Transaction_History WHERE id_thea
 /*
 The distribution of ticket sales is not fixed in a table. It is done randomly depending on several parameters such as the size of the theater. 
 It is therefore impossible to know exactly when a theater will go banrukpt. 
-We can however consider that under -20000 euros the theater will not get enough money in to compensate the losses. 
+We can however consider that under -30000 euros the theater will not get enough money in to compensate the losses. 
 */
 /*
 -- get date and id_theatre where account balance will move permanently to the red
