@@ -179,7 +179,7 @@ BEGIN
 	DECLARE offset int;
 	DECLARE nb_days int;
 	SET offset = 0;
-	SET nb_days = 200;
+	SET nb_days = 60;
 	
 	WHILE (SELECT offset < nb_days) DO
 		SET current_day = (SELECT date FROM Calendar);
@@ -205,17 +205,19 @@ BEGIN
 			-- pay stagings cost the first day for all the representations
 			UPDATE Theatre 
 			INNER JOIN day_show ON day_show.id_foreign_theatre = Theatre.id_Theatre
-			SET Theatre.budget = Theatre.budget - (day_show.staging_costs * (DATEDIFF(day_show.date_end, day_show.date_start) + 1));
+			SET Theatre.budget = Theatre.budget - (day_show.staging_costs * (DATEDIFF(day_show.date_end, day_show.date_start) + 1))
+            WHERE day_show.date_start = current_day;
 
 			UPDATE Theatre 
 			INNER JOIN day_show ON day_show.id_theatre_Theatre = Theatre.id_Theatre
 			SET Theatre.budget = Theatre.budget + (day_show.staging_costs * (DATEDIFF(day_show.date_end, day_show.date_start) + 1))
-			WHERE Theatre.id_theatre != day_show.id_foreign_theatre;
+			WHERE Theatre.id_theatre != day_show.id_foreign_theatre AND day_show.date_start = current_day;
             
             -- UPDATE TRANSACTION_HISTORY
 			INSERT INTO Transaction_History (id_theatre_payer, id_theatre_receiver, id_theatre_account_balance, amount) 
-			SELECT Theatre.id_theatre, day_show.id_theatre_Theatre, Theatre.budget, day_show.staging_costs FROM Theatre 
-			INNER JOIN day_show ON day_show.id_foreign_Theatre = Theatre.id_Theatre;
+			SELECT Theatre.id_theatre, day_show.id_theatre_Theatre, Theatre.budget, (day_show.staging_costs * (DATEDIFF(day_show.date_end, day_show.date_start) + 1)) FROM Theatre 
+			INNER JOIN day_show ON day_show.id_foreign_Theatre = Theatre.id_Theatre
+            WHERE day_show.date_start = (SELECT Date FROM Calendar);
 
 			UPDATE Transaction_History SET transaction_date = (SELECT Date FROM Calendar), label = 'Staging Costs' WHERE transaction_date IS NULL AND label IS NULL; 
 			UPDATE Transaction_History SET id_theatre_receiver = NULL WHERE id_theatre_payer = id_theatre_receiver;
@@ -318,14 +320,67 @@ VALUES
  
  /*
 insert into day_show(date_start, date_end, travel_costs, staging_costs, comedians_fees, id_foreign_theatre, id_theatre_Theatre, id_spectacle_Spectacle) VALUES ("2021-01-01","2021-01-01",300, 4000,1000,1,1,1), ("2021-01-01","2021-01-03", 500, 1000,1000,2,1,2);
-SELECT * FROM day_show;
+SELECT * FROM day_show;*/
 
-UPDATE Ticket 
-INNER JOIN day_show ON Ticket.id_spectacle_Spectacle = day_show.id_spectacle_Spectacle 
-INNER JOIN Theatre ON day_show.id_spectacle_Spectacle = Theatre.id_theatre 
-SET nb_ticket_sold_today = ROUND(RAND() * Theatre.capacity DIV 15); 
-*/
 
 CALL main();
+/*
 SELECT * FROM Theatre;
 SELECT * FROM Transaction_History;
+
+
+-- TICKET
+
+-- Select today ticket price 
+SELECT reduc_price, Accueillie.id_spectacle_Spectacle, Theatre.id_theatre FROM Ticket 
+INNER JOIN Accueillie ON Ticket.id_spectacle_Spectacle = Accueillie.id_spectacle_Spectacle 
+INNER JOIN Theatre ON Accueillie.id_spectacle_Spectacle = Theatre.id_theatre;
+*/
+
+/*
+-- Select nb ticket sold by Theatre
+select sum(nb_ticket_sold), Theatre.id_theatre
+from Ticket 
+INNER JOIN Accueillie ON Ticket.id_spectacle_Spectacle = Accueillie.id_spectacle_Spectacle 
+INNER JOIN Theatre ON Accueillie.id_spectacle_Spectacle = Theatre.id_theatre
+group by Theatre.id_theatre;
+*/
+
+/*
+-- Select AVG ticket sold by day for each theatre
+select sum(nb_ticket_sold) DIV 60, Theatre.id_theatre
+from Ticket 
+INNER JOIN Accueillie ON Ticket.id_spectacle_Spectacle = Accueillie.id_spectacle_Spectacle 
+INNER JOIN Theatre ON Accueillie.id_spectacle_Spectacle = Theatre.id_theatre
+group by Theatre.id_theatre;
+*/
+
+/*
+-- Average load for each theatre
+select AVG(nb_ticket_sold), Theatre.id_theatre
+from Ticket 
+INNER JOIN Accueillie ON Ticket.id_spectacle_Spectacle = Accueillie.id_spectacle_Spectacle 
+INNER JOIN Theatre ON Accueillie.id_spectacle_Spectacle = Theatre.id_theatre
+group by Theatre.id_theatre;
+*/
+
+-- ACCOUNTING
+
+/*
+-- Get first date and ID_theatre where account balance is null
+SELECT transaction_date, id_theatre_payer FROM Transaction_History WHERE id_theatre_account_balance <= 0 GROUP BY id_theatre_payer;
+*/
+
+/*
+The distribution of ticket sales is not fixed in a table. It is done randomly depending on several parameters such as the size of the theater. 
+It is therefore impossible to know exactly when a theater will go banrukpt. 
+We can however consider that under -20000 euros the theater will not get enough money in to compensate the losses. 
+*/
+/*
+-- get date and id_theatre where account balance will move permanently to the red
+SELECT transaction_date, id_theatre_payer FROM Transaction_History WHERE id_theatre_account_balance <= -30000 GROUP BY id_theatre_payer;
+*/
+
+SELECT * FROM Transaction_History;
+
+
