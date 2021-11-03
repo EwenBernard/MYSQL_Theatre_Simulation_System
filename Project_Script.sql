@@ -22,7 +22,7 @@ CREATE TABLE Theatre(
 DROP TABLE IF EXISTS Spectacle;
 CREATE TABLE Spectacle(
         id_spectacle   int Auto_increment,
-        name     Char (25),
+        name     Char (50),
         production_count     Float (25),
         distribution_count     Float (25),
         PRIMARY KEY (id_spectacle)
@@ -52,7 +52,6 @@ CREATE TABLE Sponsor(
         donation_type Char(25),
         PRIMARY KEY (id_sponsor)
 )ENGINE=InnoDB;
-
 
 
 DROP TABLE IF EXISTS Produire;
@@ -179,7 +178,7 @@ BEGIN
 	DECLARE offset int;
 	DECLARE nb_days int;
 	SET offset = 0;
-	SET nb_days = 60;
+	SET nb_days = 20;
 	
 	WHILE (SELECT offset < nb_days) DO
 		SET current_day = (SELECT date FROM Calendar);
@@ -193,12 +192,14 @@ BEGIN
 			UPDATE Theatre 
 			INNER JOIN day_show ON id_theatre_Theatre = Theatre.id_Theatre
 			SET Theatre.budget = budget - day_show.travel_costs 
-			WHERE day_show.id_foreign_theatre != id_theatre_Theatre;
+			WHERE day_show.id_foreign_theatre != id_theatre_Theatre 
+            AND day_show.date_start = current_day;
             
             -- UPDATE TRANSACTION HISTORY
 			INSERT INTO Transaction_History (id_theatre_payer, id_theatre_account_balance, amount) 
 			SELECT Theatre.id_theatre, Theatre.Budget, day_show.travel_costs FROM Theatre 
-			INNER JOIN day_show ON id_theatre_Theatre = Theatre.id_Theatre;
+			INNER JOIN day_show ON id_theatre_Theatre = Theatre.id_Theatre
+            AND day_show.date_start = current_day;
 
 			UPDATE Transaction_History SET transaction_date = (SELECT Date FROM Calendar), label = 'Travel Costs' WHERE transaction_date IS NULL AND label IS NULL;
 			
@@ -269,16 +270,16 @@ ALTER TABLE Accueillie ADD CONSTRAINT FK_Accueillie_id_spectacle_Spectacle FOREI
 
 INSERT INTO Theatre (capacity, budget, city)
  VALUES
- ('3000', '200000.0', 'Paris'),
- ('1500', '400000.0', 'London'),
- ('2000', '200000.0', 'Espagne'),
- ('13000', '300000.0', 'Paris'),
- ('1100', '454000.0', 'London'),
- ('2000', '267000.0', 'New York'),
- ('2000', '267000.0', 'Espagne'),
- ('20000', '367000.0', 'Los Angeles'),
- ('2200', '267000.0', 'Espagne'),
- ('14000', '330000.0', 'Italie');
+ ('3000', '20000.0', 'Paris'),
+ ('1500', '40000.0', 'London'),
+ ('2000', '18000.0', 'Espagne'),
+ ('13000', '30000.0', 'Paris'),
+ ('1100', '45400.0', 'London'),
+ ('2000', '26700.0', 'New York'),
+ ('2000', '26700.0', 'Espagne'),
+ ('20000', '36700.0', 'Los Angeles'),
+ ('2200', '26700.0', 'Espagne'),
+ ('14000', '33000.0', 'Italie');
 
  INSERT INTO Spectacle (id_spectacle, name, production_count, distribution_count)
  VALUES
@@ -287,12 +288,12 @@ INSERT INTO Theatre (capacity, budget, city)
  ('3', 'Roméo et Juliette', '120000.0', '40000.0'),
  ('4', 'Les Pas perdus', '90000.0', '50000.0'),
  ('5', 'Le tartuffe', '75000.0', '30000.0'),
- ('6', 'Thats Life', '85000.0', '35000.0'), #
- ('7', 'Casa de Papel', '82000.0', '31000.0'), #
+ ('6', 'Thats Life', '85000.0', '35000.0'), 
+ ('7', 'Casa de Papel', '82000.0', '31000.0'), 
  ('8', 'Mozaet Art Group', '75000.0', '30000.0'),
  ('9', 'Frankenstein', '95000.0', '38000.0'),
  ('10', 'Les Producteurs', '100000.0', '40000.0'),
- ('11', 'CHARLIE ET LA CHOCOLATERIE', '95000.0', '39000.0'),
+ ('11', 'Charlie et la Chocolaterie', '95000.0', '39000.0'),
  ('12', 'Noé', '88000.0', '27000.0'),
  ('13', 'Je vais taimer', '70000.0', '27000.0'),
  ('14', 'Coronavirus', '77000.0', '25000.0'),
@@ -349,79 +350,14 @@ INSERT INTO Accueillie (date_start, date_end, travel_costs, staging_costs, comed
 VALUES
 ('2021-01-06', '2021-01-08', 500, 3500, 700, 3, 2, 4),
 ("2021-01-01","2021-01-01",300, 4000,1000,1,1,1), 
-("2021-01-01","2021-01-03", 500, 1000,1000,2,1,2);
- 
- /*
-insert into day_show(date_start, date_end, travel_costs, staging_costs, comedians_fees, id_foreign_theatre, id_theatre_Theatre, id_spectacle_Spectacle) VALUES ("2021-01-01","2021-01-01",300, 4000,1000,1,1,1), ("2021-01-01","2021-01-03", 500, 1000,1000,2,1,2);
-SELECT * FROM day_show;*/
+("2021-01-01","2021-01-03", 500, 1000,1000,2,1,2),
+("2021-01-08","2021-01-11", 800, 2000, 200, 5, 4, 5),
+("2021-01-08","2021-01-11", 650, 3000, 700, 6, 2, 7),
+("2021-01-12","2021-01-13", 870, 2600, 900, 6, 6, 8),
+("2021-01-12","2021-01-16", 700, 4000, 1400, 7, 2, 5),
+("2021-01-15","2021-01-17", 300, 3000, 800, 3, 5, 10);
 
 
 CALL main();
-/*
-SELECT * FROM Theatre;
 SELECT * FROM Transaction_History;
-
-
--- TICKET
-
--- Select today ticket price 
-SELECT reduc_price, Accueillie.id_spectacle_Spectacle, Theatre.id_theatre FROM Ticket 
-INNER JOIN Accueillie ON Ticket.id_spectacle_Spectacle = Accueillie.id_spectacle_Spectacle 
-INNER JOIN Theatre ON Accueillie.id_spectacle_Spectacle = Theatre.id_theatre;
-*/
-
-/*
--- Select nb ticket sold by Theatre
-select sum(nb_ticket_sold), Theatre.id_theatre
-from Ticket 
-INNER JOIN Accueillie ON Ticket.id_spectacle_Spectacle = Accueillie.id_spectacle_Spectacle 
-INNER JOIN Theatre ON Accueillie.id_spectacle_Spectacle = Theatre.id_theatre
-group by Theatre.id_theatre;
-*/
-
-/*
--- Select AVG ticket sold by day for each theatre
-select sum(nb_ticket_sold) DIV 60, Theatre.id_theatre
-from Ticket 
-INNER JOIN Accueillie ON Ticket.id_spectacle_Spectacle = Accueillie.id_spectacle_Spectacle 
-INNER JOIN Theatre ON Accueillie.id_spectacle_Spectacle = Theatre.id_theatre
-group by Theatre.id_theatre;
-*/
-
-/*
--- Average load for each theatre
-select AVG(nb_ticket_sold), Theatre.id_theatre
-from Ticket 
-INNER JOIN Accueillie ON Ticket.id_spectacle_Spectacle = Accueillie.id_spectacle_Spectacle 
-INNER JOIN Theatre ON Accueillie.id_spectacle_Spectacle = Theatre.id_theatre
-group by Theatre.id_theatre;
-*/
-
--- ACCOUNTING
-
-/*
--- Get first date and ID_theatre where account balance is null
-SELECT transaction_date, id_theatre_payer FROM Transaction_History WHERE id_theatre_account_balance <= 0 GROUP BY id_theatre_payer;
-*/
-
-/*
-The distribution of ticket sales is not fixed in a table. It is done randomly depending on several parameters such as the size of the theater. 
-It is therefore impossible to know exactly when a theater will go banrukpt. 
-We can however consider that under -30000 euros the theater will not get enough money in to compensate the losses. 
-*/
-/*
--- get date and id_theatre where account balance will move permanently to the red
-SELECT transaction_date, id_theatre_payer FROM Transaction_History WHERE id_theatre_account_balance <= -30000 GROUP BY id_theatre_payer;
-*/
-
--- GET DIFFERENCE COST / EARNING FROM THEATRE
-/*
-SELECT pay_table.id_theatre, (IFNULL(receive_sum, 0) - IFNULL(pay_table.pay_sum, 0)) AS Balance
-FROM (SELECT id_theatre_payer AS id_theatre, SUM(amount) AS pay_sum FROM Transaction_History WHERE id_theatre_payer IS NOT NULL GROUP BY id_theatre_payer) AS pay_table
-LEFT JOIN (SELECT id_theatre_receiver, SUM(amount) AS receive_sum FROM Transaction_History WHERE id_theatre_receiver IS NOT NULL GROUP BY id_theatre_receiver) AS receive_table
-ON pay_table.id_theatre = receive_table.id_theatre_receiver;
-*/
-
-SELECT * FROM Transaction_History;
-
 
