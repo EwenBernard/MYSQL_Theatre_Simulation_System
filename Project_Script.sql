@@ -381,6 +381,14 @@ We can however consider that under -30000 euros the theater will not get enough 
 SELECT transaction_date, id_theatre_payer FROM Transaction_History WHERE id_theatre_account_balance <= -30000 GROUP BY id_theatre_payer;
 */
 
+-- GET DIFFERENCE COST / EARNING FROM THEATRE
+/*
+SELECT pay_table.id_theatre, (IFNULL(receive_sum, 0) - IFNULL(pay_table.pay_sum, 0)) AS Balance
+FROM (SELECT id_theatre_payer AS id_theatre, SUM(amount) AS pay_sum FROM Transaction_History WHERE id_theatre_payer IS NOT NULL GROUP BY id_theatre_payer) AS pay_table
+LEFT JOIN (SELECT id_theatre_receiver, SUM(amount) AS receive_sum FROM Transaction_History WHERE id_theatre_receiver IS NOT NULL GROUP BY id_theatre_receiver) AS receive_table
+ON pay_table.id_theatre = receive_table.id_theatre_receiver;
+*/
+
 SELECT * FROM Transaction_History;
 
 
