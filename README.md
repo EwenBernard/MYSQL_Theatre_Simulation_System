@@ -4,7 +4,7 @@
 
 This project implements a **Theatre Management Database System** using MySQL. It is designed to manage the operations of theatres, including spectacles, ticket sales, sponsors, financial transactions, and performances. The system leverages stored procedures, triggers, and relational database principles to ensure efficient data handling and integrity.
 
-
+(MCD.png)
 
 ---
 
