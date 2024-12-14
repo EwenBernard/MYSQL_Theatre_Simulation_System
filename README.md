@@ -94,4 +94,4 @@ This project implements a **Theatre Management Database System** using MySQL. It
 
 ## Author
 
-Designed to simulate and manage theatre operations efficiently. Contributions welcome!
+Ewen BERNARD & Sixtine Brisard
