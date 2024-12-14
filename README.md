@@ -83,15 +83,6 @@ This project implements a **Theatre Management Database System** using MySQL. It
 
 ---
 
-## Future Improvements
-
-- **Scalability**: Adapt the system for larger datasets or distributed environments.
-- **Analytics**: Integrate reporting tools for advanced analytics.
-- **Frontend**: Develop a user-friendly interface for managing operations.
-- **Testing**: Automate testing for triggers, procedures, and business logic.
-
----
-
 ## Author
 
 Ewen BERNARD & Sixtine Brisard
